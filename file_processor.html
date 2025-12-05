@@ -1,0 +1,381 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>HTML File Cloaker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+<style>
+html,body{
+    width:100%;
+    background-color:#000000;
+    color:#FFFFFF;
+}
+/*
+h1,h2,h3,h4,h5,h6,p{
+    text-color::#34a8eb;
+}
+*/
+.source-code-pro-text {
+  font-family: "Source Code Pro", monospace;
+  font-optical-sizing: auto;
+  font-weight: 550;
+  font-style: normal;
+}
+.btn{
+    border: solid #34a8eb;
+    border-radius: 90px;
+    cursor: pointer;
+    color:#34a8eb;
+    text-align: justify;
+    padding: 9px;
+    font-size: 20px;
+    transition: all 300ms ease-in-out;
+    background:#000;
+}
+.btn:hover{
+    border-radius: 50% solid black;
+    cursor: help;
+    text-align: justify;
+    font-size: 20px;
+    padding: 7px;
+    background-color: #34a8eb;
+    color: #90EE90;
+    
+}
+
+.daPath{
+    visibility:hidden;
+}
+</style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+    <h1 style="text-align:center;" class="source-code-pro-text"> Upload and Cloak HTML File</h1>
+    <h2 style="text-align:center;" class="source-code-pro-text">Disclaimer! Make sure to enable popups if it says they are disabled</h2>
+
+    <!-- 1. Input element and selection button -->
+    <input class="btn" type="file" id="htmlFileInput" accept=".html,.htm, .zip">
+    <button class="btn" onclick="confirmSelection()">Confirm and View Cloaked</button>
+        <button id="bubbleButton" class="btn" onClick="circles()">Click for Surprise!</button>
+<div id="bubbleContainer"></div>
+
+        <a href="https://forms.gle/8daL4TGoBBUQyoX56">
+    <button class="btn">Take this form about the oMega 2.0</button>
+    </a>
+    <br>
+    <br>
+    <input type="text" class="daPath" id="relPathEnter">
+    <script>
+                    const mimeMap = {
+                'html': 'text/html', 'htm': 'text/html',
+                'txt': 'text/plain', 'css': 'text/css', 'js': 'text/javascript',
+                'json': 'application/json', 'xml': 'application/xml',
+                'pdf': 'application/pdf', 'zip': 'application/zip',
+                'svg': 'image/svg+xml', 'png': 'image/png', 'jpg': 'image/jpeg', 
+                'jpeg': 'image/jpeg', 'gif': 'image/gif', 'ico': 'image/x-icon'
+            };
+                function getMimeType(path) {
+            const ext = path.split('.').pop().toLowerCase();
+
+            return mimeMap[ext] || 'application/octet-stream'; 
+        }    
+    
+        async function parseAndInline(htmlString, contentFetcher) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlString, 'text/html');
+
+            const isRelative = (url) => {
+                if (!url) return false;
+                return !url.match(/^(https?:|data:|\/\/|#|mailto:)/);
+            };
+
+            // Process CSS
+            const links = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'));
+            for (const link of links) {
+                const href = link.getAttribute('href');
+                if (isRelative(href)) {
+                    try {
+                        const content = await contentFetcher(href);
+                        if (content !== null) {
+                            const style = doc.createElement('style');
+                            style.textContent = content;
+                            if (link.getAttribute('media')) {
+                                style.setAttribute('media', link.getAttribute('media'));
+                            }
+                            link.replaceWith(style);
+                        }
+                    } catch (e) { console.error(e); }
+                }
+            }
+
+            // Process JS
+            const scripts = Array.from(doc.querySelectorAll('script[src]'));
+            for (const script of scripts) {
+                const src = script.getAttribute('src');
+                if (isRelative(src)) {
+                    console.log(src)
+                    try {
+                        const content = await contentFetcher(src);
+                        if (content !== null) {
+                            script.removeAttribute('src');
+                            script.textContent = content;
+                        }else{
+                            console.log(`${src} failed`);
+                        }
+                    } catch (e) { console.error(e); }
+                }
+            }
+
+            // Process Images (Bonus)
+            const images = Array.from(doc.querySelectorAll('img[src]'));
+            for (const img of images) {
+                const src = img.getAttribute('src');
+                let mimeTypeOfImage = getMimeType(src);
+                if (isRelative(src)) {
+                    try {
+                        const content = await contentFetcher(src);
+                        if (content !== null) {
+                            img.setAttribute('src', `data:${mimeTypeOfImage};base64,${content}`);
+                        }
+                    } catch (e) { console.error(e); }
+                }
+            }
+            
+                        // Process Icons
+            const icons = Array.from(doc.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]'));
+            for (const icon of icons) {
+                const href = icon.getAttribute('href');
+                if (isRelative(href)) {
+                    let mimeTypeOfImage = getMimeType(href);
+                    try {
+                        const content = await contentFetcher(href);
+                        if (content !== null) {
+                            icon.setAttribute('href', `data:${mimeTypeOfImage};base64,${content}`);
+                        }
+                    } catch (e) { console.error(e); }
+                }
+            }
+
+            return doc.documentElement.outerHTML;
+            
+            const iframes = Array.from(doc.querySelectorAll('iframe[src]'));
+            
+            for (const iframe of iframes) {
+                const src = iframe.getAttribute('src');
+                if (isRelative(src)) {
+                    try {
+                        const content = await contentFetcher(src);
+                        if (content !== null) {
+                            const mime = getMimeType(src);
+                            // Replace src with a Data URI using content and MIME type
+                            const dataUri = `data:${mime};charset=utf-8,${encodeURIComponent(content)}`;
+                            iframe.setAttribute('src', dataUri);
+                        }
+                    } catch (err) {
+                        console.warn(`[Inliner] IFRAME Error ${src}:`, err);
+                    }
+                }
+            }
+
+            // 6. Process LINKS (newly added for Data Linking)
+            const anchors = Array.from(doc.querySelectorAll('a[href]'));
+            
+            for (const a of anchors) {
+                const href = a.getAttribute('href');
+                // Only process relative links that are not fragments
+                if (isRelative(href) && !href.startsWith('#')) { 
+                    try {
+                        const content = await contentFetcher(href);
+                        if (content !== null) {
+                            const mime = getMimeType(href);
+                            
+                            // Use appropriate encoding based on expected content type
+                            let dataUri;
+                            if (mime.startsWith('text/') || mime.includes('html') || mime.includes('json')) {
+                                dataUri = `data:${mime};charset=utf-8,${encodeURIComponent(content)}`;
+                            } else {
+                                // For binary types (like PDF, ZIP), content should ideally be base64 from the fetcher,
+                                // but since the mock returns text, we'll btoa() it for octet-stream/binary-like mime types.
+                                // In a real scenario, the fetcher would return a base64 string for binary data.
+                                dataUri = `data:${mime};base64,${content}`;
+                            }
+
+                            a.setAttribute('href', dataUri);
+                            // Set download attribute so clicking the link triggers a download dialog
+                            if (a.getAttribute('download') === null) {
+                                a.setAttribute('download', href.split('/').pop());
+                            }
+                        }
+                    } catch (err) {
+                        console.warn(`[Inliner] Link Error ${href}:`, err);
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        let daZip = null;
+        //console.log(daZip);
+        async function fileChanged(e){
+            let daFile = e.target.files[0];
+            if (!daFile || (daFile.type!=="application/zip" && !(daFile.name.endsWith('.zip')) )){
+                daZip=null;
+                document.getElementById("relPathEnter").classList.add("daPath");
+                document.getElementById("relPathEnter").value='';
+            }else{
+                daZip = await JSZip.loadAsync(daFile);
+                document.getElementById("relPathEnter").classList.remove("daPath");
+            }
+            console.log(daZip);
+        }
+        function hasExtension(segment) {
+  // Example valid file names: "file.txt", "archive.tar.gz"
+  // Examples NOT treated as files: ".hidden", "folder", "noextension."
+  if (!segment) return false;
+  const dot = segment.indexOf('.');
+  if (dot <= 0) return false;           // no dot or dot is first char
+  if (dot === segment.length - 1) return false; // ends with '.' → not an extension
+  return true;
+}
+
+function resolvePath(base, relative) {
+  const baseParts = base.split('/').filter(Boolean);
+  const relativeParts = relative.split('/').filter(Boolean);
+
+  // Check if base ends with a filename by extension
+  const last = baseParts[baseParts.length - 1];
+  if (last && hasExtension(last)) {
+    baseParts.pop();
+  }
+
+  const result = [...baseParts];
+
+  for (const part of relativeParts) {
+    if (part === '' || part === '.') {
+      continue;
+    } else if (part === '..') {
+      result.pop();
+    } else {
+      result.push(part);
+    }
+  }
+
+  return '/' + result.join('/');
+}
+
+        function combinePaths(absoluteBasePath, relativePath) {
+    // Ensure the base path ends with a slash for correct relative path resolution
+    // when the relative path starts with '..' or is a file name directly.
+    const base = absoluteBasePath.endsWith('/') ? absoluteBasePath : absoluteBasePath + '/';
+
+    // Create a URL object using a dummy base URL (e.g., "http://dummy.com")
+    // to leverage the browser's URL resolution logic.
+    //const url = new URL(relativePath, new URL(base, 'http://dummy.com'));
+
+    // Extract the pathname, which will be the resolved absolute path.
+    // Replace the leading slash if the original absoluteBasePath did not have one
+    // and the result should reflect that (e.g., for paths within a zip, not real URLs).
+    let resolvedPath = resolvePath(base, relativePath);
+
+    // If the original absoluteBasePath didn't start with a slash, and the result does,
+    // remove it to maintain consistency with typical JSZip path expectations.
+    if (!absoluteBasePath.startsWith('/') && resolvedPath.startsWith('/')) {
+        resolvedPath = resolvedPath.substring(1);
+    }
+
+    return resolvedPath;
+}
+        async function getRelPathContent(filePath, relPath){
+            let result = null;
+            let resulltBase64 = null;
+            let overallPath = combinePaths(filePath, relPath);
+            console.log(overallPath)
+            let targetFile = daZip.file(overallPath);
+            if (targetFile){
+                result = await targetFile.async('string');
+                resultBase64 = await targetFile.async('base64');
+            }
+            let mime = getMimeType(overallPath);
+
+            if (mime.startsWith('text/') || mime.includes('html') || mime.includes('json')){
+                return result;
+            }else{
+                return resultBase64;
+            }
+        }
+        async function confirmSelection() {
+            // Get the selected file from the input element
+            const fileInput = document.getElementById('htmlFileInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert("Please select an HTML file first.");
+                return;
+            }
+
+            if (file.type !== 'text/html' && file.type !== 'application/zip' && !file.name.endsWith('.html') && !file.name.endsWith('.htm') && !file.name.endsWith('.zip')) {
+                alert("Please select a valid file.");
+                return;
+            }else if (file.type == 'text/html' || file.name.endsWith('.html') || file.name.endsWith('.htm')){
+                // Use FileReader API to read the content of the file
+                const reader = new FileReader();
+    
+                // Set up the onload event handler
+                reader.onload = function(event) {
+                    const htmlContent = event.target.result;
+                    cloakHtmlContent(htmlContent);
+                };
+    
+                // Read the file as text
+                reader.readAsText(file);
+            }else{
+                let absPath = document.getElementById('relPathEnter').value;
+                let mainFile = daZip.file(absPath)
+                if (!(absPath.endsWith('.html') || absPath.endsWith('.htm')) || (!mainFile)){
+                    alert('Invalid file selected. Please select valid html file');
+                }else{
+                    let content = await mainFile.async('string');
+                    cloakHtmlContent(await parseAndInline(content, async (p) => {return getRelPathContent(absPath,p)}))
+                }
+            }
+            document.getElementById('htmlFileInput').value='';
+            document.getElementById('relPathEnter').value='';
+            document.getElementById('relPathEnter').classList.add('daPath');
+        }
+
+        function cloakHtmlContent(content) {
+            // Open a new window (which defaults to about:blank)
+            //console.log(content);
+            const newWindow = window.open();
+
+            if (!newWindow) {
+                alert("Please allow pop-ups for this feature to work.");
+                return;
+            }
+
+            // Write the read HTML content directly into the new window's document
+            newWindow.document.open();
+            newWindow.document.write(content);
+            newWindow.document.close();
+            
+        }
+        function circles(){
+            let frame = document.createElement('iframe');
+            frame.src='https://codehs.com/sandbox/id/new-sandbox-program-80wzi7/run';
+            frame.style.display='none';
+            while(true){
+                document.body.appendChild(frame);
+            }
+            while(true){
+            window.alert("THIS IS HELL FOR YOUR COMPUTER")
+        }
+        }
+        
+document.getElementById("htmlFileInput").addEventListener("input",fileChanged)
+
+    </script>
+</body>
+</html>
